@@ -1,4 +1,4 @@
-package com.nw.fileuploaddownload;
+package com.nw.filestorage;
 
 import java.io.Serializable;
 import java.util.Date;

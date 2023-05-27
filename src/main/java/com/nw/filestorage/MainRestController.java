@@ -1,4 +1,4 @@
-package com.nw.fileuploaddownload;
+package com.nw.filestorage;
 
 
 import org.springframework.http.HttpStatus;
@@ -6,8 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -28,49 +26,47 @@ public class MainRestController {
 
     @GetMapping("/files")
     public ResponseEntity<List<Document>> getAllFiles() {
-        List<Document> files = documentRepository.findAll();
-        return files != null
-                ? new ResponseEntity<>(files, HttpStatus.OK)
+        List<Document> documents = documentRepository.findAll();
+        return documents != null
+                ? new ResponseEntity<>(documents, HttpStatus.OK)
                 : new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
     @GetMapping("/download/{id}")
     public ResponseEntity<Document> downloadFileById(@PathVariable(value = "id") long id, HttpServletResponse response) throws Exception {
         Optional<Document> result = documentRepository.findById(id);
-
-        if(!result.isPresent()) {
-            throw new Exception("Could not find document with ID: " + id);
-        }
-
         Document document = result.get();
-        response.setContentType("application/octed-stream");
-        String headerKey = "Content-Disposition";
-        String headerValue = "attachment; filename=" + document.getName();
 
-        response.setHeader(headerKey, headerValue);
+        if (!result.isPresent()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        } else {
+            response.setContentType("application/octed-stream");
+            String headerKey = "Content-Disposition";
+            String headerValue = "attachment; filename=" + document.getName();
 
-        ServletOutputStream outputStream = response.getOutputStream();
-        outputStream.write(document.getContent());
-        outputStream.close();
+            response.setHeader(headerKey, headerValue);
 
-        return document != null
-                ? new ResponseEntity<>(document, HttpStatus.OK)
-                : new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            ServletOutputStream outputStream = response.getOutputStream();
+            outputStream.write(document.getContent());
+            outputStream.close();
+
+        }
+        return new ResponseEntity<>(document, HttpStatus.OK);
 
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<Document> uploadFile(@RequestParam("document") MultipartFile multipartFile,
-                                               RedirectAttributes ra) throws IOException {
+    public ResponseEntity<Document> uploadFile(
+            @RequestParam("document") MultipartFile multipartFile) throws IOException {
 
 
         String fileName = StringUtils.cleanPath(Objects.requireNonNull(multipartFile.getOriginalFilename()));
         long fileSize = multipartFile.getSize();
+        Document document = new Document();
 
         if (fileName.endsWith(".txt") || fileName.endsWith(".csv") || fileSize > 100000) {
             return new ResponseEntity<>(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
         } else {
-            Document document = new Document();
             document.setName(fileName);
             document.setContent(multipartFile.getBytes());
             document.setSize(multipartFile.getSize());
@@ -78,10 +74,8 @@ public class MainRestController {
 
             documentRepository.save(document);
 
-            ra.addFlashAttribute("message", "Файл загружен успешно");
-
         }
-         return new ResponseEntity<>(HttpStatus.OK);
+        return new ResponseEntity<>(document, HttpStatus.OK);
 
     }
 }
